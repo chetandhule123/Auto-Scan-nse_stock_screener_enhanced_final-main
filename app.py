@@ -706,8 +706,13 @@ def send_telegram_notification(scan_results):
         # Add buttons if available (2 per row)
         if all_buttons:
             payload["reply_markup"] = {
-                "inline_keyboard": [all_buttons[i:i+2] for i in range(0, len(all_buttons), 2)
+                "inline_keyboard": [all_buttons[i:i+2] for i in range(0, len(all_buttons), 2)]
             }
+
+
+
+
+           
 
         # Send notification
         response = requests.post(
