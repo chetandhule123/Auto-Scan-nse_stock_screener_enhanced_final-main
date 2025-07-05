@@ -48,7 +48,7 @@ if 'scan_results' not in st.session_state:
 if 'auto_scan_enabled' not in st.session_state:
     st.session_state.auto_scan_enabled = True
 if 'scan_interval' not in st.session_state:
-    st.session_state.scan_interval = 15  # minutes - FIXED: Default to 15 minutes
+    st.session_state.scan_interval = 5  # minutes - FIXED: Default to 15 minutes
 if 'active_scanners' not in st.session_state:
     st.session_state.active_scanners = {
         "MACD 15min": True,
@@ -77,10 +77,10 @@ def check_market_hours_ist():
 def show_auto_refresh_timer():
     components.html("""
         <div style="text-align: center; padding: 10px;">
-            <h4 style="color: #2a5298;">🔄 Auto Refresh In: <span id="timer">15:00</span></h4>
+            <h4 style="color: #2a5298;">🔄 Auto Refresh In: <span id="timer">05:00</span></h4>
         </div>
         <script>
-        let totalSeconds = 900;
+        let totalSeconds = 300;  // 5 minutes in seconds
         function updateTimer() {
             let minutes = Math.floor(totalSeconds / 60);
             let seconds = totalSeconds % 60;
@@ -94,46 +94,53 @@ def show_auto_refresh_timer():
         }
         setTimeout(function() {
             window.location.reload();
-        }, 900000);  // Reload after 15 minutes
+        }, 300000);  // Reload after 5 minutes (300000ms)
         updateTimer();  // Start countdown
         </script>
     """, height=80)
 
 
 
-
 def main():
-    
-    
-    keepalive_js = """
-    <script>
-    // Session keep-alive with error handling
-    function keepAlive() {
-        fetch(window.location.href, {
-            method: 'GET',
-            headers: {'Cache-Control': 'no-cache'},
-            credentials: 'same-origin'
-        }).then(response => {
-            console.log('Session ping at', new Date());
-        }).catch(err => {
-            console.error('Keep-alive failed:', err);
-            setTimeout(() => location.reload(), 30000); // Fallback reload
-        });
+
+# Replace your keepalive_js in main() with this:
+keepalive_js = """
+<script>
+// Session keep-alive with error handling
+function keepAlive() {
+    fetch(window.location.href, {
+        method: 'GET',
+        headers: {'Cache-Control': 'no-cache'},
+        credentials: 'same-origin'
+    }).then(response => {
+        console.log('Session ping at', new Date());
+    }).catch(err => {
+        console.error('Keep-alive failed:', err);
+        setTimeout(() => location.reload(), 10000); // Fallback reload
+    });
+}
+
+// Auto-refresh every 5 minutes (300000ms)
+setTimeout(() => {
+    console.log('Auto-refreshing...');
+    window.location.reload();
+}, 300000);
+
+// Ping every 2 minutes (120000ms)
+setInterval(keepAlive, 120000);
+
+// Initial ping
+keepAlive();
+
+// Track visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing data...');
+        keepAlive();
     }
-    
-    // Auto-refresh every 15 minutes (900000ms)
-    setTimeout(() => {
-        console.log('Auto-refreshing...');
-        window.location.reload();
-    }, 900000);
-    
-    // Ping every 5 minutes (300000ms)
-    setInterval(keepAlive, 300000);
-    
-    // Initial ping
-    keepAlive();
-    </script>
-    """
+});
+</script>
+"""
     components.html(keepalive_js, height=0)
 
     # Your existing UI header code...
@@ -203,12 +210,15 @@ def main():
         
         
         # FIXED: Force scan interval to 15 minutes as per requirements
+        
+        # In your sidebar configuration, update the selectbox:
         scan_interval = st.selectbox(
             "Scan Interval (minutes)",
-            [15, 30, 60],  # Removed 5 and 10 minute options
-            index=0,  # Default to 15 minutes
+            [5, 15, 30],  # Now with 5 minutes as first option
+            index=0,
             key="scan_interval_select"
         )
+
         
         if auto_scan != st.session_state.auto_scan_enabled:
             st.session_state.auto_scan_enabled = auto_scan
@@ -259,7 +269,7 @@ def main():
     # Auto-scan logic
     if st.session_state.auto_scan_enabled:
         handle_auto_scan()
-        show_auto_refresh_timer()
+       
 
     
     # Update the counters in real-time
@@ -542,6 +552,12 @@ def run_all_scanners():
 
 
 def send_telegram_notification(scan_results):
+
+    now = get_ist_time()
+    if (st.session_state.last_telegram_time and (now - st.session_state.last_telegram_time).total_seconds() < 300):  # 5 minutes
+        return False  # Skip notification if last one was <5 minutes ago
+
+    
     """Send formatted scan results to Telegram"""
     try:
         BOT_TOKEN = st.secrets["BOT_TOKEN"]
@@ -688,12 +704,14 @@ def handle_auto_scan():
         return
     
     # Subsequent runs - check if scan interval has passed
-    scan_interval = max(st.session_state.scan_interval, 15)  # Minimum 15 minutes
+    scan_interval = st.session_state.scan_interval  # Use the selected interval
     next_scan = st.session_state.last_scan_time + timedelta(minutes=scan_interval)
     
     if current_time >= next_scan:
         run_all_scanners()
         st.session_state.last_scan_time = current_time
+
+
 
 
 def export_results():
