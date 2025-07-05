@@ -168,44 +168,43 @@ def show_auto_refresh_timer():
 def main():
     # Enhanced JavaScript keep-alive and refresh (5-minute intervals)
     keepalive_js = """
-    <script>
-    // Session keep-alive with error handling
-    function keepAlive() {
-        fetch(window.location.href, {
-            method: 'GET',
-            headers: {'Cache-Control': 'no-cache'},
-            credentials: 'same-origin'
-        }).then(response => {
-            console.log('Session ping at', new Date());
-        }).catch(err => {
-            console.error('Keep-alive failed:', err);
-            setTimeout(() => location.reload(), 10000); // Fallback reload after 10 seconds
-        });
-    }
-    
-    // Auto-refresh every 5 minutes (300000ms)
-    setTimeout(() => {
-        console.log('Auto-refreshing...');
-        window.location.reload();
-    }, 300000);
-    
-    // Ping every 2 minutes (120000ms) to keep session alive
-    setInterval(keepAlive, 120000);
-    
-    // Initial ping
-    keepAlive();
-    
-    // Track visibility changes
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            console.log('Tab became visible, refreshing data...');
-            keepAlive();
-        }
+<script>
+// Session keep-alive with error handling
+function keepAlive() {
+    fetch(window.location.href, {
+        method: 'GET',
+        headers: {'Cache-Control': 'no-cache'},
+        credentials: 'same-origin'
+    }).then(response => {
+        console.log('Session ping at', new Date());
+    }).catch(err => {
+        console.error('Keep-alive failed:', err);
+        setTimeout(() => location.reload(), 10000); // Fallback reload after 10 seconds
     });
-    </script>
-    """
-    components.html(keepalive_js, height=0)
+}
 
+// Auto-refresh every 5 minutes (300000ms)
+setTimeout(() => {
+    console.log('Auto-refreshing...');
+    window.location.reload();
+}, 300000);
+
+// Ping every 2 minutes (120000ms) to keep session alive
+setInterval(keepAlive, 120000);
+
+// Initial ping
+keepAlive();
+
+// Track visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing data...');
+        keepAlive();
+    }
+});
+</script>
+"""
+    components.html(keepalive_js, height=0)
     # UI Header with updated 5-minute indicator
     st.markdown("""
     <div style="background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
