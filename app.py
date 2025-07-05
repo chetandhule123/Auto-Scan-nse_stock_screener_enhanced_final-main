@@ -261,7 +261,6 @@ def main():
 
 
 
-
 def display_market_indices():
     """Display real-time market indices with fresh UI"""
     st.markdown("### 📊 Live Market Indices")
