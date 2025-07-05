@@ -30,6 +30,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
+
+
+
+
+# JavaScript to keep the session alive
+js = """
+<script>
+// Function to keep the session alive
+function keepAlive() {
+    fetch(window.location.href, {
+        method: 'GET',
+        headers: {
+            'Cache-Control': 'no-cache',
+        }
+    }).then(response => {
+        console.log('Session kept alive');
+    }).catch(err => {
+        console.log('Error keeping session alive:', err);
+    });
+}
+
+// Refresh every 15 minutes
+setTimeout(function() {
+    window.location.reload();
+}, 900000);
+
+// Ping every 5 minutes to keep session alive
+setInterval(keepAlive, 300000);
+</script>
+"""
+
+# Inject the JavaScript
+st.components.v1.html(js, height=0)
+
 # Initialize session state
 if 'last_scan_time' not in st.session_state:
     st.session_state.last_scan_time = None
