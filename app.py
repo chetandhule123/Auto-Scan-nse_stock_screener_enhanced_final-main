@@ -102,89 +102,51 @@ def show_auto_refresh_timer():
 
 
 def main():
-
-# Replace your keepalive_js in main() with this:
-keepalive_js = """
-<script>
-// Session keep-alive with error handling
-function keepAlive() {
-    fetch(window.location.href, {
-        method: 'GET',
-        headers: {'Cache-Control': 'no-cache'},
-        credentials: 'same-origin'
-    }).then(response => {
-        console.log('Session ping at', new Date());
-    }).catch(err => {
-        console.error('Keep-alive failed:', err);
-        setTimeout(() => location.reload(), 10000); // Fallback reload
-    });
-}
-
-// Auto-refresh every 5 minutes (300000ms)
-setTimeout(() => {
-    console.log('Auto-refreshing...');
-    window.location.reload();
-}, 300000);
-
-// Ping every 2 minutes (120000ms)
-setInterval(keepAlive, 120000);
-
-// Initial ping
-keepAlive();
-
-// Track visibility changes
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        console.log('Tab became visible, refreshing data...');
-        keepAlive();
+    # Enhanced JavaScript keep-alive and refresh (5-minute intervals)
+    keepalive_js = """
+    <script>
+    // Session keep-alive with error handling
+    function keepAlive() {
+        fetch(window.location.href, {
+            method: 'GET',
+            headers: {'Cache-Control': 'no-cache'},
+            credentials: 'same-origin'
+        }).then(response => {
+            console.log('Session ping at', new Date());
+        }).catch(err => {
+            console.error('Keep-alive failed:', err);
+            setTimeout(() => location.reload(), 10000); // Fallback reload after 10 seconds
+        });
     }
-});
-</script>
-"""
+    
+    // Auto-refresh every 5 minutes (300000ms)
+    setTimeout(() => {
+        console.log('Auto-refreshing...');
+        window.location.reload();
+    }, 300000);
+    
+    // Ping every 2 minutes (120000ms) to keep session alive
+    setInterval(keepAlive, 120000);
+    
+    // Initial ping
+    keepAlive();
+    
+    // Track visibility changes
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log('Tab became visible, refreshing data...');
+            keepAlive();
+        }
+    });
+    </script>
+    """
     components.html(keepalive_js, height=0)
 
-    # Your existing UI header code...
+    # UI Header with updated 5-minute indicator
     st.markdown("""
     <div style="background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
         <h1 style="color: white; text-align: center; margin: 0; font-size: 2.5rem;">
-            🚀 NSE Stock Screener Pro
-        </h1>
-        <!-- ... keep existing header content ... -->
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Keep your existing sidebar code exactly as is...
-    with st.sidebar:
-        # ... all your existing sidebar code ...
-        pass
-
-    # Main content area - keep your existing columns
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        display_market_indices()
-        display_scanner_results()
-    
-    with col2:
-        time_since_container, countdown_container = display_status_panel()
-
-    # Simplified auto-scan logic - REPLACE YOUR EXISTING CODE WITH THIS:
-    if st.session_state.auto_scan_enabled:
-        # This handles the scanning on 15-minute intervals
-        handle_auto_scan()
-        
-        # Show just ONE timer (remove any duplicate calls)
-        show_auto_refresh_timer()
-        
-        # Update counters if needed
-        if time_since_container or countdown_container:
-            update_counters(time_since_container, countdown_container)
-
-    # Fresh modern UI header
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-        <h1 style="color: white; text-align: center; margin: 0; font-size: 2.5rem;">
-            🚀 NSE Stock Screener Pro
+            🚀 NSE Stock Screener Pro (5-Minute Scan)
         </h1>
         <p style="color: #E8F4FD; text-align: center; margin: 0.5rem 0 0 0; font-size: 1.2rem;">
             Advanced Technical Analysis & Real-time Market Intelligence
@@ -198,27 +160,22 @@ document.addEventListener('visibilitychange', () => {
         market_status="🟢 OPEN" if check_market_hours_ist() else "🔴 CLOSED"
     ), unsafe_allow_html=True)
     
-    # Sidebar configuration
+    # Sidebar configuration with 5-minute options
     with st.sidebar:
         st.markdown("### ⚙️ Scanner Configuration")
         
         # Auto-scan settings
         st.markdown("#### 🔄 Auto-Scan Settings")
+        auto_scan = st.checkbox("Enable Auto-Scan (5min intervals)", 
+                              value=st.session_state.auto_scan_enabled,
+                              key="auto_scan_checkbox")
         
-        auto_scan = st.checkbox("Enable Auto-Scan (15min intervals)", value=st.session_state.auto_scan_enabled, key="auto_scan_checkbox")
-
-        
-        
-        # FIXED: Force scan interval to 15 minutes as per requirements
-        
-        # In your sidebar configuration, update the selectbox:
         scan_interval = st.selectbox(
             "Scan Interval (minutes)",
-            [5, 15, 30],  # Now with 5 minutes as first option
+            [5, 15, 30],  # 5 minutes as first option
             index=0,
             key="scan_interval_select"
         )
-
         
         if auto_scan != st.session_state.auto_scan_enabled:
             st.session_state.auto_scan_enabled = auto_scan
@@ -229,29 +186,51 @@ document.addEventListener('visibilitychange', () => {
             run_all_scanners()
             st.rerun()
         
+        # Notification settings
+        st.session_state.notification_enabled = st.checkbox(
+            "Enable Telegram Notifications", 
+            value=st.session_state.get('notification_enabled', True),
+            key="telegram_notifications"
+        )
         
-        st.session_state.notification_enabled = st.checkbox("Enable Telegram Notifications", value=st.session_state.get('notification_enabled', True),key="telegram_notifications")
-        
-        # Scanner selection - PRESERVE EXISTING MACD LOGIC
+        # Scanner selection
         st.markdown("#### 📊 Active Scanners")
         
-        # MACD Scanners (existing logic preserved)
+        # MACD Scanners
         st.markdown("**MACD Scanners:**")
-        st.session_state.active_scanners["MACD 15min"] = st.checkbox("MACD 15-minute", value=st.session_state.active_scanners["MACD 15min"])
-        st.session_state.active_scanners["MACD 4h"] = st.checkbox("MACD 4-hour", value=st.session_state.active_scanners["MACD 4h"])
-        st.session_state.active_scanners["MACD 1d"] = st.checkbox("MACD 1-day", value=st.session_state.active_scanners["MACD 1d"])
+        st.session_state.active_scanners["MACD 15min"] = st.checkbox(
+            "MACD 15-minute", 
+            value=st.session_state.active_scanners["MACD 15min"]
+        )
+        st.session_state.active_scanners["MACD 4h"] = st.checkbox(
+            "MACD 4-hour", 
+            value=st.session_state.active_scanners["MACD 4h"]
+        )
+        st.session_state.active_scanners["MACD 1d"] = st.checkbox(
+            "MACD 1-day", 
+            value=st.session_state.active_scanners["MACD 1d"]
+        )
         
-        # New scanners
-        st.markdown("**New Advanced Scanners:**")
-        st.session_state.active_scanners["Range Breakout 4h"] = st.checkbox("Range Breakout (4h)", value=st.session_state.active_scanners["Range Breakout 4h"])
-        st.session_state.active_scanners["Resistance Breakout 4h"] = st.checkbox("Resistance Breakout (4h)", value=st.session_state.active_scanners["Resistance Breakout 4h"])
-        st.session_state.active_scanners["Support Level 4h"] = st.checkbox("Support Level (4h)", value=st.session_state.active_scanners["Support Level 4h"])
+        # Advanced Scanners
+        st.markdown("**Advanced Scanners:**")
+        st.session_state.active_scanners["Range Breakout 4h"] = st.checkbox(
+            "Range Breakout (4h)", 
+            value=st.session_state.active_scanners["Range Breakout 4h"]
+        )
+        st.session_state.active_scanners["Resistance Breakout 4h"] = st.checkbox(
+            "Resistance Breakout (4h)", 
+            value=st.session_state.active_scanners["Resistance Breakout 4h"]
+        )
+        st.session_state.active_scanners["Support Level 4h"] = st.checkbox(
+            "Support Level (4h)", 
+            value=st.session_state.active_scanners["Support Level 4h"]
+        )
         
         # Export options
         st.markdown("#### 📊 Export Options")
         if st.button("📥 Export Results", use_container_width=True):
             export_results()
-    
+
     # Main content area
     col1, col2 = st.columns([3, 1])
     
@@ -263,22 +242,17 @@ document.addEventListener('visibilitychange', () => {
         display_scanner_results()
     
     with col2:
-        # Status and info panel - get the containers that need updating
+        # Status and info panel
         time_since_container, countdown_container = display_status_panel()
     
-    # Auto-scan logic
+    # Auto-scan logic with 5-minute intervals
     if st.session_state.auto_scan_enabled:
         handle_auto_scan()
-       
-
-    
-    # Update the counters in real-time
-    if time_since_container or countdown_container:
-        update_counters(time_since_container, countdown_container)
-
-
-    
-
+        show_auto_refresh_timer()
+        
+        # Update counters in real-time
+        if time_since_container or countdown_container:
+            update_counters(time_since_container, countdown_container)
 
 
 
