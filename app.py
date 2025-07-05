@@ -35,32 +35,7 @@ st.set_page_config(
 
 
 
-# JavaScript to keep the session alive
-js = """
-<script>
-// Function to keep the session alive
-function keepAlive() {
-    fetch(window.location.href, {
-        method: 'GET',
-        headers: {
-            'Cache-Control': 'no-cache',
-        }
-    }).then(response => {
-        console.log('Session kept alive');
-    }).catch(err => {
-        console.log('Error keeping session alive:', err);
-    });
-}
 
-// Refresh every 15 minutes
-setTimeout(function() {
-    window.location.reload();
-}, 900000);
-
-// Ping every 5 minutes to keep session alive
-setInterval(keepAlive, 300000);
-</script>
-"""
 
 # Inject the JavaScript
 st.components.v1.html(js, height=0)
@@ -128,6 +103,76 @@ def show_auto_refresh_timer():
 
 
 def main():
+    
+    
+    keepalive_js = """
+    <script>
+    // Session keep-alive with error handling
+    function keepAlive() {
+        fetch(window.location.href, {
+            method: 'GET',
+            headers: {'Cache-Control': 'no-cache'},
+            credentials: 'same-origin'
+        }).then(response => {
+            console.log('Session ping at', new Date());
+        }).catch(err => {
+            console.error('Keep-alive failed:', err);
+            setTimeout(() => location.reload(), 30000); // Fallback reload
+        });
+    }
+    
+    // Auto-refresh every 15 minutes (900000ms)
+    setTimeout(() => {
+        console.log('Auto-refreshing...');
+        window.location.reload();
+    }, 900000);
+    
+    // Ping every 5 minutes (300000ms)
+    setInterval(keepAlive, 300000);
+    
+    // Initial ping
+    keepAlive();
+    </script>
+    """
+    components.html(keepalive_js, height=0)
+
+    # Your existing UI header code...
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
+        <h1 style="color: white; text-align: center; margin: 0; font-size: 2.5rem;">
+            🚀 NSE Stock Screener Pro
+        </h1>
+        <!-- ... keep existing header content ... -->
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Keep your existing sidebar code exactly as is...
+    with st.sidebar:
+        # ... all your existing sidebar code ...
+        pass
+
+    # Main content area - keep your existing columns
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        display_market_indices()
+        display_scanner_results()
+    
+    with col2:
+        time_since_container, countdown_container = display_status_panel()
+
+    # Simplified auto-scan logic - REPLACE YOUR EXISTING CODE WITH THIS:
+    if st.session_state.auto_scan_enabled:
+        # This handles the scanning on 15-minute intervals
+        handle_auto_scan()
+        
+        # Show just ONE timer (remove any duplicate calls)
+        show_auto_refresh_timer()
+        
+        # Update counters if needed
+        if time_since_container or countdown_container:
+            update_counters(time_since_container, countdown_container)
+
     # Fresh modern UI header
     st.markdown("""
     <div style="background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
@@ -221,13 +266,7 @@ def main():
     if time_since_container or countdown_container:
         update_counters(time_since_container, countdown_container)
 
-    # 🔁 Force full page reload every 15 minutes even if browser is inactive
-    st.markdown("""
-        <meta http-equiv="refresh" content="900">
-    """, unsafe_allow_html=True)
 
-    # 🕒 Optional: Show visible countdown
-    show_auto_refresh_timer()
     
 
 
@@ -438,9 +477,10 @@ def update_counters(time_since_container, countdown_container):
         else:
             countdown_container.write("**Next Scan:** ⏰ Due now")
     
-    # Schedule the next update in 1 second
-    time.sleep(1)
-    st.rerun()
+    # Schedule the next update in 1 second only if auto-scan is enabled
+    if st.session_state.auto_scan_enabled:
+        time.sleep(1)
+        st.rerun()
 
 
 
@@ -638,26 +678,22 @@ def send_telegram_notification(scan_results):
 
 
 def handle_auto_scan():
-    """Handle automatic scanning with immediate first scan"""
+    """Handle automatic scanning with proper timing"""
     current_time = get_ist_time()
     
     # First run - scan immediately if no previous scan time
     if st.session_state.last_scan_time is None:
         run_all_scanners()
         st.session_state.last_scan_time = current_time
-        time.sleep(1)  # Small delay before refresh
-        st.rerun()
-    else:
-        # Subsequent runs - check if 15 minutes have passed
-        next_scan = st.session_state.last_scan_time + timedelta(minutes=15)
-        if current_time >= next_scan:
-            run_all_scanners()
-            st.session_state.last_scan_time = current_time
-            time.sleep(1)  # Small delay before refresh
-            st.rerun()
+        return
     
-    # Remove the visual indicator from here since we're handling it in update_counters
-    time.sleep(1)
+    # Subsequent runs - check if scan interval has passed
+    scan_interval = max(st.session_state.scan_interval, 15)  # Minimum 15 minutes
+    next_scan = st.session_state.last_scan_time + timedelta(minutes=scan_interval)
+    
+    if current_time >= next_scan:
+        run_all_scanners()
+        st.session_state.last_scan_time = current_time
 
 
 def export_results():
