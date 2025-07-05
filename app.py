@@ -22,6 +22,27 @@ from utils.market_indices import MarketIndices
 from utils.data_fetcher import DataFetcher
 from datetime import datetime, timedelta
 
+# Initialize session state
+if 'last_scan_time' not in st.session_state:
+    st.session_state.last_scan_time = None
+if 'scan_results' not in st.session_state:
+    st.session_state.scan_results = {}
+if 'auto_scan_enabled' not in st.session_state:
+    st.session_state.auto_scan_enabled = True
+if 'scan_interval' not in st.session_state:
+    st.session_state.scan_interval = 5  # 5 minutes as default
+if 'active_scanners' not in st.session_state:
+    st.session_state.active_scanners = {
+        "MACD 15min": True,
+        "MACD 4h": True, 
+        "MACD 1d": True,
+        "Range Breakout 4h": True,
+        "Resistance Breakout 4h": True,
+        "Support Level 4h": True
+    }
+# Add this new initialization:
+if 'last_telegram_time' not in st.session_state:
+    st.session_state.last_telegram_time = None
 
 # At the top of your file (before any function definitions), add:
 def initialize_javascript():
@@ -58,24 +79,7 @@ def initialize_javascript():
 # Then modify your initialization section to:
 js = initialize_javascript()
 
-# Initialize session state
-if 'last_scan_time' not in st.session_state:
-    st.session_state.last_scan_time = None
-if 'scan_results' not in st.session_state:
-    st.session_state.scan_results = {}
-if 'auto_scan_enabled' not in st.session_state:
-    st.session_state.auto_scan_enabled = True
-if 'scan_interval' not in st.session_state:
-    st.session_state.scan_interval = 5  # Changed to 5 minutes as default
-if 'active_scanners' not in st.session_state:
-    st.session_state.active_scanners = {
-        "MACD 15min": True,
-        "MACD 4h": True, 
-        "MACD 1d": True,
-        "Range Breakout 4h": True,
-        "Resistance Breakout 4h": True,
-        "Support Level 4h": True
-    }
+
 
 # Then your existing code continues...
 st.components.v1.html(js, height=0)  # This will now work
@@ -585,34 +589,33 @@ def run_all_scanners():
 
 
 def send_telegram_notification(scan_results):
-
-    now = get_ist_time()
-    if (st.session_state.last_telegram_time and (now - st.session_state.last_telegram_time).total_seconds() < 300):  # 5 minutes
-        return False  # Skip notification if last one was <5 minutes ago
-
-    
-    """Send formatted scan results to Telegram"""
+    """Send formatted scan results to Telegram with cooldown protection"""
     try:
-        BOT_TOKEN = st.secrets["BOT_TOKEN"]
-        CHAT_ID = st.secrets["CHAT_ID"]
-
-        if not BOT_TOKEN or not CHAT_ID:
-            st.warning("Telegram credentials not configured")
+        # Check if Telegram credentials are configured
+        if 'BOT_TOKEN' not in st.secrets or 'CHAT_ID' not in st.secrets:
+            st.warning("Telegram credentials not configured in secrets")
             return False
 
-        now = get_ist_time().strftime('%d %b %Y, %I:%M %p IST')
-        message = f"📊 *Market Scanner Report*\n🕒 *Scanned at:* {now}\n"
+        # Initialize last_telegram_time if not exists
+        if 'last_telegram_time' not in st.session_state:
+            st.session_state.last_telegram_time = None
+
+        # Check notification cooldown (5 minutes)
+        current_time = get_ist_time()
+        if (st.session_state.last_telegram_time and 
+            (current_time - st.session_state.last_telegram_time).total_seconds() < 300):
+            print("⏳ Skipping Telegram notification (cooldown active)")
+            return False
+
+        # Prepare message header
+        message = f"📊 *Market Scanner Report*\n🕒 *Scanned at:* {current_time.strftime('%d %b %Y, %I:%M %p IST')}\n"
 
         def format_section(title, df):
-            # Handle symbol column case-insensitively
-            symbol_col = None
-            for col in df.columns:
-                if col.lower() == "symbol":
-                    symbol_col = col
-                    break
-            if symbol_col is None:
+            """Helper function to format scanner results"""
+            symbol_col = next((col for col in df.columns if col.lower() == "symbol"), None)
+            if not symbol_col:
                 return "", []
-
+            
             df = df[df[symbol_col].notna()]
             df = df[df[symbol_col].astype(str).str.strip() != ""]
             if df.empty:
@@ -623,105 +626,108 @@ def send_telegram_notification(scan_results):
             for _, row in df.iterrows():
                 symbol = str(row[symbol_col]).strip()
                 if symbol and symbol.lower() != "nan" and symbol.upper() != "N/A":
-                    symbol = symbol.replace(".NS", "")  # Optional: clean .NS for cleaner view
-                    lines.append(f"• {symbol} [🔗 Chart](https://www.tradingview.com/chart/?symbol=NSE:{symbol})")
+                    clean_symbol = symbol.replace(".NS", "")
+                    lines.append(f"• {clean_symbol} [🔗 Chart](https://www.tradingview.com/chart/?symbol=NSE:{clean_symbol})")
                     buttons.append({
-                        "text": f"{symbol}",
-                        "url": f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
+                        "text": f"{clean_symbol}",
+                        "url": f"https://www.tradingview.com/chart/?symbol=NSE:{clean_symbol}"
                     })
             return "\n".join(lines), buttons
 
         sections = []
         all_buttons = []
 
-        # MACD 4H
-        if "MACD 4h" in scan_results:
-            df = scan_results["MACD 4h"]
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                sec, btns = format_section("MACD 4H Crossover", df)
-                if sec: sections.append(sec)
+        # MACD 4H Results
+        if "MACD 4h" in scan_results and isinstance(scan_results["MACD 4h"], pd.DataFrame):
+            sec, btns = format_section("MACD 4H Crossover", scan_results["MACD 4h"])
+            if sec: 
+                sections.append(sec)
                 all_buttons.extend(btns)
 
-        # MACD 1D
-        if "MACD 1d" in scan_results:
-            df = scan_results["MACD 1d"]
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                sec, btns = format_section("MACD 1D Crossover", df)
-                if sec: sections.append(sec)
+        # MACD 1D Results
+        if "MACD 1d" in scan_results and isinstance(scan_results["MACD 1d"], pd.DataFrame):
+            sec, btns = format_section("MACD 1D Crossover", scan_results["MACD 1d"])
+            if sec:
+                sections.append(sec)
                 all_buttons.extend(btns)
 
-        # Range Breakout 4H
-        if "Range Breakout 4h" in scan_results:
-            df = scan_results["Range Breakout 4h"]
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                sec, btns = format_section("Range Breakout 4H", df)
-                if sec: sections.append(sec)
+        # Range Breakout Results
+        if "Range Breakout 4h" in scan_results and isinstance(scan_results["Range Breakout 4h"], pd.DataFrame):
+            sec, btns = format_section("Range Breakout 4H", scan_results["Range Breakout 4h"])
+            if sec:
+                sections.append(sec)
                 all_buttons.extend(btns)
 
-        # Resistance Breakout 4h
-        if "Resistance Breakout 4h" in scan_results:
+        # Resistance Breakout Results
+        if "Resistance Breakout 4h" in scan_results and isinstance(scan_results["Resistance Breakout 4h"], pd.DataFrame):
             df = scan_results["Resistance Breakout 4h"]
-            if isinstance(df, pd.DataFrame) and not df.empty and "Distance_to_Resistance_%" in df.columns:
+            if "Distance_to_Resistance_%" in df.columns:
                 filtered_df = df[df["Distance_to_Resistance_%"] < 2]
+                
                 if "Signal_Type" in filtered_df.columns:
                     retrace_df = filtered_df[filtered_df["Signal_Type"].str.contains("retracement", case=False, na=False)]
                     fresh_df = filtered_df[filtered_df["Signal_Type"].str.contains("fresh", case=False, na=False)]
                 else:
                     retrace_df = filtered_df
                     fresh_df = pd.DataFrame()
+                
                 if not retrace_df.empty:
                     sec, btns = format_section("Resistance Breakout (Retracement <2%)", retrace_df)
-                    if sec: sections.append(sec)
-                    all_buttons.extend(btns)
+                    if sec:
+                        sections.append(sec)
+                        all_buttons.extend(btns)
+                
                 if not fresh_df.empty:
                     sec, btns = format_section("Resistance Breakout (Fresh Entry <2%)", fresh_df)
-                    if sec: sections.append(sec)
-                    all_buttons.extend(btns)
+                    if sec:
+                        sections.append(sec)
+                        all_buttons.extend(btns)
 
-        # Support Level 4h
-        if "Support Level 4h" in scan_results:
+        # Support Level Results
+        if "Support Level 4h" in scan_results and isinstance(scan_results["Support Level 4h"], pd.DataFrame):
             df = scan_results["Support Level 4h"]
-            if isinstance(df, pd.DataFrame) and not df.empty and "Distance_to_Support_%" in df.columns:
+            if "Distance_to_Support_%" in df.columns:
                 near_df = df[df["Distance_to_Support_%"] < 2]
                 sec, btns = format_section("Support Level 4H (Near Support <2%)", near_df)
-                if sec: sections.append(sec)
-                all_buttons.extend(btns)
+                if sec:
+                    sections.append(sec)
+                    all_buttons.extend(btns)
 
-        # Final message
-        message += "\n".join(sections) if sections else "\n_No signals found._"
+        # Compile final message
+        message += "\n".join(sections) if sections else "\n_No significant signals found._"
 
-        # Payload
+        # Prepare payload
         payload = {
-            "chat_id": CHAT_ID,
+            "chat_id": st.secrets["CHAT_ID"],
             "text": message,
             "parse_mode": "Markdown",
             "disable_web_page_preview": True
         }
 
-        # Buttons (2 per row)
+        # Add buttons if available (2 per row)
         if all_buttons:
-            inline_keyboard = []
-            for i in range(0, len(all_buttons), 2):
-                inline_keyboard.append(all_buttons[i:i+2])
-            payload["reply_markup"] = {"inline_keyboard": inline_keyboard}
+            payload["reply_markup"] = {
+                "inline_keyboard": [all_buttons[i:i+2] for i in range(0, len(all_buttons), 2)
+            }
 
-        # Send
+        # Send notification
         response = requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json=payload
+            f"https://api.telegram.org/bot{st.secrets['BOT_TOKEN']}/sendMessage",
+            json=payload,
+            timeout=10  # Add timeout to prevent hanging
         )
 
-        if response.status_code != 200:
-            st.error(f"Telegram API error: {response.text}")
-            return False
-
-        return True
-
-    except Exception as e:
-        st.error(f"Failed to send Telegram notification: {str(e)}")
+        if response.status_code == 200:
+            st.session_state.last_telegram_time = current_time
+            print(f"✅ Telegram notification sent at {current_time}")
+            return True
+        
+        st.error(f"Telegram API error: {response.status_code} - {response.text}")
         return False
 
-
+    except Exception as e:
+        st.error(f"⚠️ Failed to send Telegram notification: {str(e)}")
+        return False
 
 
 
