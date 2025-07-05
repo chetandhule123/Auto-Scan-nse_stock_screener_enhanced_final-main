@@ -22,6 +22,66 @@ from utils.market_indices import MarketIndices
 from utils.data_fetcher import DataFetcher
 from datetime import datetime, timedelta
 
+
+# At the top of your file (before any function definitions), add:
+def initialize_javascript():
+    return """
+    <script>
+    // Session keep-alive with error handling
+    function keepAlive() {
+        fetch(window.location.href, {
+            method: 'GET',
+            headers: {'Cache-Control': 'no-cache'},
+            credentials: 'same-origin'
+        }).then(response => {
+            console.log('Session ping at', new Date());
+        }).catch(err => {
+            console.error('Keep-alive failed:', err);
+            setTimeout(() => location.reload(), 10000);
+        });
+    }
+    
+    // Auto-refresh every 5 minutes (300000ms)
+    setTimeout(() => {
+        console.log('Auto-refreshing...');
+        window.location.reload();
+    }, 300000);
+    
+    // Ping every 2 minutes (120000ms)
+    setInterval(keepAlive, 120000);
+    
+    // Initial ping
+    keepAlive();
+    </script>
+    """
+
+# Then modify your initialization section to:
+js = initialize_javascript()
+
+# Initialize session state
+if 'last_scan_time' not in st.session_state:
+    st.session_state.last_scan_time = None
+if 'scan_results' not in st.session_state:
+    st.session_state.scan_results = {}
+if 'auto_scan_enabled' not in st.session_state:
+    st.session_state.auto_scan_enabled = True
+if 'scan_interval' not in st.session_state:
+    st.session_state.scan_interval = 5  # Changed to 5 minutes as default
+if 'active_scanners' not in st.session_state:
+    st.session_state.active_scanners = {
+        "MACD 15min": True,
+        "MACD 4h": True, 
+        "MACD 1d": True,
+        "Range Breakout 4h": True,
+        "Resistance Breakout 4h": True,
+        "Support Level 4h": True
+    }
+
+# Then your existing code continues...
+st.components.v1.html(js, height=0)  # This will now work
+
+
+
 # Page configuration
 st.set_page_config(
     page_title="🚀 NSE Stock Screener Pro",
