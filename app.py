@@ -22,70 +22,6 @@ from utils.market_indices import MarketIndices
 from utils.data_fetcher import DataFetcher
 from datetime import datetime, timedelta
 
-# Initialize session state
-if 'last_scan_time' not in st.session_state:
-    st.session_state.last_scan_time = None
-if 'scan_results' not in st.session_state:
-    st.session_state.scan_results = {}
-if 'auto_scan_enabled' not in st.session_state:
-    st.session_state.auto_scan_enabled = True
-if 'scan_interval' not in st.session_state:
-    st.session_state.scan_interval = 5  # 5 minutes as default
-if 'active_scanners' not in st.session_state:
-    st.session_state.active_scanners = {
-        "MACD 15min": True,
-        "MACD 4h": True, 
-        "MACD 1d": True,
-        "Range Breakout 4h": True,
-        "Resistance Breakout 4h": True,
-        "Support Level 4h": True
-    }
-# Add this new initialization:
-if 'last_telegram_time' not in st.session_state:
-    st.session_state.last_telegram_time = None
-
-# At the top of your file (before any function definitions), add:
-def initialize_javascript():
-    return """
-    <script>
-    // Session keep-alive with error handling
-    function keepAlive() {
-        fetch(window.location.href, {
-            method: 'GET',
-            headers: {'Cache-Control': 'no-cache'},
-            credentials: 'same-origin'
-        }).then(response => {
-            console.log('Session ping at', new Date());
-        }).catch(err => {
-            console.error('Keep-alive failed:', err);
-            setTimeout(() => location.reload(), 10000);
-        });
-    }
-    
-    // Auto-refresh every 5 minutes (300000ms)
-    setTimeout(() => {
-        console.log('Auto-refreshing...');
-        window.location.reload();
-    }, 300000);
-    
-    // Ping every 2 minutes (120000ms)
-    setInterval(keepAlive, 120000);
-    
-    // Initial ping
-    keepAlive();
-    </script>
-    """
-
-# Then modify your initialization section to:
-js = initialize_javascript()
-
-
-
-# Then your existing code continues...
-st.components.v1.html(js, height=0)  # This will now work
-
-
-
 # Page configuration
 st.set_page_config(
     page_title="🚀 NSE Stock Screener Pro",
@@ -94,16 +30,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
-
-
-
-
-
-
-# Inject the JavaScript
-st.components.v1.html(js, height=0)
-
 # Initialize session state
 if 'last_scan_time' not in st.session_state:
     st.session_state.last_scan_time = None
@@ -112,7 +38,7 @@ if 'scan_results' not in st.session_state:
 if 'auto_scan_enabled' not in st.session_state:
     st.session_state.auto_scan_enabled = True
 if 'scan_interval' not in st.session_state:
-    st.session_state.scan_interval = 5  # minutes - FIXED: Default to 15 minutes
+    st.session_state.scan_interval = 15  # minutes - FIXED: Default to 15 minutes
 if 'active_scanners' not in st.session_state:
     st.session_state.active_scanners = {
         "MACD 15min": True,
@@ -141,10 +67,10 @@ def check_market_hours_ist():
 def show_auto_refresh_timer():
     components.html("""
         <div style="text-align: center; padding: 10px;">
-            <h4 style="color: #2a5298;">🔄 Auto Refresh In: <span id="timer">05:00</span></h4>
+            <h4 style="color: #2a5298;">🔄 Auto Refresh In: <span id="timer">15:00</span></h4>
         </div>
         <script>
-        let totalSeconds = 300;  // 5 minutes in seconds
+        let totalSeconds = 900;
         function updateTimer() {
             let minutes = Math.floor(totalSeconds / 60);
             let seconds = totalSeconds % 60;
@@ -158,58 +84,20 @@ def show_auto_refresh_timer():
         }
         setTimeout(function() {
             window.location.reload();
-        }, 300000);  // Reload after 5 minutes (300000ms)
+        }, 900000);  // Reload after 15 minutes
         updateTimer();  // Start countdown
         </script>
     """, height=80)
 
 
 
+
 def main():
-    # Enhanced JavaScript keep-alive and refresh (5-minute intervals)
-    keepalive_js = """
-<script>
-// Session keep-alive with error handling
-function keepAlive() {
-    fetch(window.location.href, {
-        method: 'GET',
-        headers: {'Cache-Control': 'no-cache'},
-        credentials: 'same-origin'
-    }).then(response => {
-        console.log('Session ping at', new Date());
-    }).catch(err => {
-        console.error('Keep-alive failed:', err);
-        setTimeout(() => location.reload(), 10000); // Fallback reload after 10 seconds
-    });
-}
-
-// Auto-refresh every 5 minutes (300000ms)
-setTimeout(() => {
-    console.log('Auto-refreshing...');
-    window.location.reload();
-}, 300000);
-
-// Ping every 2 minutes (120000ms) to keep session alive
-setInterval(keepAlive, 120000);
-
-// Initial ping
-keepAlive();
-
-// Track visibility changes
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        console.log('Tab became visible, refreshing data...');
-        keepAlive();
-    }
-});
-</script>
-"""
-    components.html(keepalive_js, height=0)
-    # UI Header with updated 5-minute indicator
+    # Fresh modern UI header
     st.markdown("""
     <div style="background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
         <h1 style="color: white; text-align: center; margin: 0; font-size: 2.5rem;">
-            🚀 NSE Stock Screener Pro (5-Minute Scan)
+            🚀 NSE Stock Screener Pro
         </h1>
         <p style="color: #E8F4FD; text-align: center; margin: 0.5rem 0 0 0; font-size: 1.2rem;">
             Advanced Technical Analysis & Real-time Market Intelligence
@@ -223,20 +111,22 @@ document.addEventListener('visibilitychange', () => {
         market_status="🟢 OPEN" if check_market_hours_ist() else "🔴 CLOSED"
     ), unsafe_allow_html=True)
     
-    # Sidebar configuration with 5-minute options
+    # Sidebar configuration
     with st.sidebar:
         st.markdown("### ⚙️ Scanner Configuration")
         
         # Auto-scan settings
         st.markdown("#### 🔄 Auto-Scan Settings")
-        auto_scan = st.checkbox("Enable Auto-Scan (5min intervals)", 
-                              value=st.session_state.auto_scan_enabled,
-                              key="auto_scan_checkbox")
         
+        auto_scan = st.checkbox("Enable Auto-Scan (15min intervals)", value=st.session_state.auto_scan_enabled, key="auto_scan_checkbox")
+
+        
+        
+        # FIXED: Force scan interval to 15 minutes as per requirements
         scan_interval = st.selectbox(
             "Scan Interval (minutes)",
-            [5, 15, 30],  # 5 minutes as first option
-            index=0,
+            [15, 30, 60],  # Removed 5 and 10 minute options
+            index=0,  # Default to 15 minutes
             key="scan_interval_select"
         )
         
@@ -249,51 +139,29 @@ document.addEventListener('visibilitychange', () => {
             run_all_scanners()
             st.rerun()
         
-        # Notification settings
-        st.session_state.notification_enabled = st.checkbox(
-            "Enable Telegram Notifications", 
-            value=st.session_state.get('notification_enabled', True),
-            key="telegram_notifications"
-        )
         
-        # Scanner selection
+        st.session_state.notification_enabled = st.checkbox("Enable Telegram Notifications", value=st.session_state.get('notification_enabled', True),key="telegram_notifications")
+        
+        # Scanner selection - PRESERVE EXISTING MACD LOGIC
         st.markdown("#### 📊 Active Scanners")
         
-        # MACD Scanners
+        # MACD Scanners (existing logic preserved)
         st.markdown("**MACD Scanners:**")
-        st.session_state.active_scanners["MACD 15min"] = st.checkbox(
-            "MACD 15-minute", 
-            value=st.session_state.active_scanners["MACD 15min"]
-        )
-        st.session_state.active_scanners["MACD 4h"] = st.checkbox(
-            "MACD 4-hour", 
-            value=st.session_state.active_scanners["MACD 4h"]
-        )
-        st.session_state.active_scanners["MACD 1d"] = st.checkbox(
-            "MACD 1-day", 
-            value=st.session_state.active_scanners["MACD 1d"]
-        )
+        st.session_state.active_scanners["MACD 15min"] = st.checkbox("MACD 15-minute", value=st.session_state.active_scanners["MACD 15min"])
+        st.session_state.active_scanners["MACD 4h"] = st.checkbox("MACD 4-hour", value=st.session_state.active_scanners["MACD 4h"])
+        st.session_state.active_scanners["MACD 1d"] = st.checkbox("MACD 1-day", value=st.session_state.active_scanners["MACD 1d"])
         
-        # Advanced Scanners
-        st.markdown("**Advanced Scanners:**")
-        st.session_state.active_scanners["Range Breakout 4h"] = st.checkbox(
-            "Range Breakout (4h)", 
-            value=st.session_state.active_scanners["Range Breakout 4h"]
-        )
-        st.session_state.active_scanners["Resistance Breakout 4h"] = st.checkbox(
-            "Resistance Breakout (4h)", 
-            value=st.session_state.active_scanners["Resistance Breakout 4h"]
-        )
-        st.session_state.active_scanners["Support Level 4h"] = st.checkbox(
-            "Support Level (4h)", 
-            value=st.session_state.active_scanners["Support Level 4h"]
-        )
+        # New scanners
+        st.markdown("**New Advanced Scanners:**")
+        st.session_state.active_scanners["Range Breakout 4h"] = st.checkbox("Range Breakout (4h)", value=st.session_state.active_scanners["Range Breakout 4h"])
+        st.session_state.active_scanners["Resistance Breakout 4h"] = st.checkbox("Resistance Breakout (4h)", value=st.session_state.active_scanners["Resistance Breakout 4h"])
+        st.session_state.active_scanners["Support Level 4h"] = st.checkbox("Support Level (4h)", value=st.session_state.active_scanners["Support Level 4h"])
         
         # Export options
         st.markdown("#### 📊 Export Options")
         if st.button("📥 Export Results", use_container_width=True):
             export_results()
-
+    
     # Main content area
     col1, col2 = st.columns([3, 1])
     
@@ -305,17 +173,29 @@ document.addEventListener('visibilitychange', () => {
         display_scanner_results()
     
     with col2:
-        # Status and info panel
+        # Status and info panel - get the containers that need updating
         time_since_container, countdown_container = display_status_panel()
     
-    # Auto-scan logic with 5-minute intervals
+    # Auto-scan logic
     if st.session_state.auto_scan_enabled:
         handle_auto_scan()
         show_auto_refresh_timer()
-        
-        # Update counters in real-time
-        if time_since_container or countdown_container:
-            update_counters(time_since_container, countdown_container)
+
+    
+    # Update the counters in real-time
+    if time_since_container or countdown_container:
+        update_counters(time_since_container, countdown_container)
+
+    # 🔁 Force full page reload every 15 minutes even if browser is inactive
+    st.markdown("""
+        <meta http-equiv="refresh" content="900">
+    """, unsafe_allow_html=True)
+
+    # 🕒 Optional: Show visible countdown
+    show_auto_refresh_timer()
+    
+
+
 
 
 
@@ -523,10 +403,9 @@ def update_counters(time_since_container, countdown_container):
         else:
             countdown_container.write("**Next Scan:** ⏰ Due now")
     
-    # Schedule the next update in 1 second only if auto-scan is enabled
-    if st.session_state.auto_scan_enabled:
-        time.sleep(1)
-        st.rerun()
+    # Schedule the next update in 1 second
+    time.sleep(1)
+    st.rerun()
 
 
 
@@ -588,33 +467,28 @@ def run_all_scanners():
 
 
 def send_telegram_notification(scan_results):
-    """Send formatted scan results to Telegram with cooldown protection"""
+    """Send formatted scan results to Telegram"""
     try:
-        # Check if Telegram credentials are configured
-        if 'BOT_TOKEN' not in st.secrets or 'CHAT_ID' not in st.secrets:
-            st.warning("Telegram credentials not configured in secrets")
+        BOT_TOKEN = st.secrets["BOT_TOKEN"]
+        CHAT_ID = st.secrets["CHAT_ID"]
+
+        if not BOT_TOKEN or not CHAT_ID:
+            st.warning("Telegram credentials not configured")
             return False
 
-        # Initialize last_telegram_time if not exists
-        if 'last_telegram_time' not in st.session_state:
-            st.session_state.last_telegram_time = None
-
-        # Check notification cooldown (5 minutes)
-        current_time = get_ist_time()
-        if (st.session_state.last_telegram_time and 
-            (current_time - st.session_state.last_telegram_time).total_seconds() < 300):
-            print("⏳ Skipping Telegram notification (cooldown active)")
-            return False
-
-        # Prepare message header
-        message = f"📊 *Market Scanner Report*\n🕒 *Scanned at:* {current_time.strftime('%d %b %Y, %I:%M %p IST')}\n"
+        now = get_ist_time().strftime('%d %b %Y, %I:%M %p IST')
+        message = f"📊 *Market Scanner Report*\n🕒 *Scanned at:* {now}\n"
 
         def format_section(title, df):
-            """Helper function to format scanner results"""
-            symbol_col = next((col for col in df.columns if col.lower() == "symbol"), None)
-            if not symbol_col:
+            # Handle symbol column case-insensitively
+            symbol_col = None
+            for col in df.columns:
+                if col.lower() == "symbol":
+                    symbol_col = col
+                    break
+            if symbol_col is None:
                 return "", []
-            
+
             df = df[df[symbol_col].notna()]
             df = df[df[symbol_col].astype(str).str.strip() != ""]
             if df.empty:
@@ -625,136 +499,130 @@ def send_telegram_notification(scan_results):
             for _, row in df.iterrows():
                 symbol = str(row[symbol_col]).strip()
                 if symbol and symbol.lower() != "nan" and symbol.upper() != "N/A":
-                    clean_symbol = symbol.replace(".NS", "")
-                    lines.append(f"• {clean_symbol} [🔗 Chart](https://www.tradingview.com/chart/?symbol=NSE:{clean_symbol})")
+                    symbol = symbol.replace(".NS", "")  # Optional: clean .NS for cleaner view
+                    lines.append(f"• {symbol} [🔗 Chart](https://www.tradingview.com/chart/?symbol=NSE:{symbol})")
                     buttons.append({
-                        "text": f"{clean_symbol}",
-                        "url": f"https://www.tradingview.com/chart/?symbol=NSE:{clean_symbol}"
+                        "text": f"{symbol}",
+                        "url": f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
                     })
             return "\n".join(lines), buttons
 
         sections = []
         all_buttons = []
 
-        # MACD 4H Results
-        if "MACD 4h" in scan_results and isinstance(scan_results["MACD 4h"], pd.DataFrame):
-            sec, btns = format_section("MACD 4H Crossover", scan_results["MACD 4h"])
-            if sec: 
-                sections.append(sec)
+        # MACD 4H
+        if "MACD 4h" in scan_results:
+            df = scan_results["MACD 4h"]
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                sec, btns = format_section("MACD 4H Crossover", df)
+                if sec: sections.append(sec)
                 all_buttons.extend(btns)
 
-        # MACD 1D Results
-        if "MACD 1d" in scan_results and isinstance(scan_results["MACD 1d"], pd.DataFrame):
-            sec, btns = format_section("MACD 1D Crossover", scan_results["MACD 1d"])
-            if sec:
-                sections.append(sec)
+        # MACD 1D
+        if "MACD 1d" in scan_results:
+            df = scan_results["MACD 1d"]
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                sec, btns = format_section("MACD 1D Crossover", df)
+                if sec: sections.append(sec)
                 all_buttons.extend(btns)
 
-        # Range Breakout Results
-        if "Range Breakout 4h" in scan_results and isinstance(scan_results["Range Breakout 4h"], pd.DataFrame):
-            sec, btns = format_section("Range Breakout 4H", scan_results["Range Breakout 4h"])
-            if sec:
-                sections.append(sec)
+        # Range Breakout 4H
+        if "Range Breakout 4h" in scan_results:
+            df = scan_results["Range Breakout 4h"]
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                sec, btns = format_section("Range Breakout 4H", df)
+                if sec: sections.append(sec)
                 all_buttons.extend(btns)
 
-        # Resistance Breakout Results
-        if "Resistance Breakout 4h" in scan_results and isinstance(scan_results["Resistance Breakout 4h"], pd.DataFrame):
+        # Resistance Breakout 4h
+        if "Resistance Breakout 4h" in scan_results:
             df = scan_results["Resistance Breakout 4h"]
-            if "Distance_to_Resistance_%" in df.columns:
+            if isinstance(df, pd.DataFrame) and not df.empty and "Distance_to_Resistance_%" in df.columns:
                 filtered_df = df[df["Distance_to_Resistance_%"] < 2]
-                
                 if "Signal_Type" in filtered_df.columns:
                     retrace_df = filtered_df[filtered_df["Signal_Type"].str.contains("retracement", case=False, na=False)]
                     fresh_df = filtered_df[filtered_df["Signal_Type"].str.contains("fresh", case=False, na=False)]
                 else:
                     retrace_df = filtered_df
                     fresh_df = pd.DataFrame()
-                
                 if not retrace_df.empty:
                     sec, btns = format_section("Resistance Breakout (Retracement <2%)", retrace_df)
-                    if sec:
-                        sections.append(sec)
-                        all_buttons.extend(btns)
-                
+                    if sec: sections.append(sec)
+                    all_buttons.extend(btns)
                 if not fresh_df.empty:
                     sec, btns = format_section("Resistance Breakout (Fresh Entry <2%)", fresh_df)
-                    if sec:
-                        sections.append(sec)
-                        all_buttons.extend(btns)
-
-        # Support Level Results
-        if "Support Level 4h" in scan_results and isinstance(scan_results["Support Level 4h"], pd.DataFrame):
-            df = scan_results["Support Level 4h"]
-            if "Distance_to_Support_%" in df.columns:
-                near_df = df[df["Distance_to_Support_%"] < 2]
-                sec, btns = format_section("Support Level 4H (Near Support <2%)", near_df)
-                if sec:
-                    sections.append(sec)
+                    if sec: sections.append(sec)
                     all_buttons.extend(btns)
 
-        # Compile final message
-        message += "\n".join(sections) if sections else "\n_No significant signals found._"
+        # Support Level 4h
+        if "Support Level 4h" in scan_results:
+            df = scan_results["Support Level 4h"]
+            if isinstance(df, pd.DataFrame) and not df.empty and "Distance_to_Support_%" in df.columns:
+                near_df = df[df["Distance_to_Support_%"] < 2]
+                sec, btns = format_section("Support Level 4H (Near Support <2%)", near_df)
+                if sec: sections.append(sec)
+                all_buttons.extend(btns)
 
-        # Prepare payload
+        # Final message
+        message += "\n".join(sections) if sections else "\n_No signals found._"
+
+        # Payload
         payload = {
-            "chat_id": st.secrets["CHAT_ID"],
+            "chat_id": CHAT_ID,
             "text": message,
             "parse_mode": "Markdown",
             "disable_web_page_preview": True
         }
 
-        # Add buttons if available (2 per row)
+        # Buttons (2 per row)
         if all_buttons:
-            payload["reply_markup"] = {
-                "inline_keyboard": [all_buttons[i:i+2] for i in range(0, len(all_buttons), 2)]
-            }
+            inline_keyboard = []
+            for i in range(0, len(all_buttons), 2):
+                inline_keyboard.append(all_buttons[i:i+2])
+            payload["reply_markup"] = {"inline_keyboard": inline_keyboard}
 
-
-
-
-           
-
-        # Send notification
+        # Send
         response = requests.post(
-            f"https://api.telegram.org/bot{st.secrets['BOT_TOKEN']}/sendMessage",
-            json=payload,
-            timeout=10  # Add timeout to prevent hanging
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json=payload
         )
 
-        if response.status_code == 200:
-            st.session_state.last_telegram_time = current_time
-            print(f"✅ Telegram notification sent at {current_time}")
-            return True
-        
-        st.error(f"Telegram API error: {response.status_code} - {response.text}")
-        return False
+        if response.status_code != 200:
+            st.error(f"Telegram API error: {response.text}")
+            return False
+
+        return True
 
     except Exception as e:
-        st.error(f"⚠️ Failed to send Telegram notification: {str(e)}")
+        st.error(f"Failed to send Telegram notification: {str(e)}")
         return False
+
+
 
 
 
 
 def handle_auto_scan():
-    """Handle automatic scanning with proper timing"""
+    """Handle automatic scanning with immediate first scan"""
     current_time = get_ist_time()
     
     # First run - scan immediately if no previous scan time
     if st.session_state.last_scan_time is None:
         run_all_scanners()
         st.session_state.last_scan_time = current_time
-        return
+        time.sleep(1)  # Small delay before refresh
+        st.rerun()
+    else:
+        # Subsequent runs - check if 15 minutes have passed
+        next_scan = st.session_state.last_scan_time + timedelta(minutes=15)
+        if current_time >= next_scan:
+            run_all_scanners()
+            st.session_state.last_scan_time = current_time
+            time.sleep(1)  # Small delay before refresh
+            st.rerun()
     
-    # Subsequent runs - check if scan interval has passed
-    scan_interval = st.session_state.scan_interval  # Use the selected interval
-    next_scan = st.session_state.last_scan_time + timedelta(minutes=scan_interval)
-    
-    if current_time >= next_scan:
-        run_all_scanners()
-        st.session_state.last_scan_time = current_time
-
-
+    # Remove the visual indicator from here since we're handling it in update_counters
+    time.sleep(1)
 
 
 def export_results():
