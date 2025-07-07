@@ -454,29 +454,16 @@ def run_all_scanners():
             st.session_state.last_scan_time = get_ist_time()
             
             # Send Telegram notification if enabled and there are results
-            #if (st.session_state.notification_enabled and 
-                #any(isinstance(df, pd.DataFrame) and not df.empty 
-                #for df in scan_results.values())):
+            if (st.session_state.notification_enabled and 
+                any(isinstance(df, pd.DataFrame) and not df.empty 
+                for df in scan_results.values())):
                 
-                #send_telegram_notification(scan_results)
-
-
-
-
-            # Send Telegram notification only if 15 minutes have passed since last scan
-            if (st.session_state.notification_enabled and
-                any(isinstance(df, pd.DataFrame) and not df.empty for df in scan_results.values())):
-                now = get_ist_time()
-                last_scan_time = st.session_state.last_scan_time
-
-            if not st.session_state.last_scan_time:
                 send_telegram_notification(scan_results)
-                
-            # Send notification only if last scan time is at least 15 minutes ago
-            if last_scan_time and (now - last_scan_time >= timedelta(minutes=15)):
-                send_telegram_notification(scan_results)
-            else:
-                st.info("ℹ️ Telegram notification skipped: must wait 15 minutes between sends.")
+
+
+
+
+
 
             
             
