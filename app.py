@@ -31,6 +31,8 @@ st.set_page_config(
 )
 
 # Initialize session state
+if 'last_telegram_time' not in st.session_state:
+    st.session_state.last_telegram_time = None
 if 'last_scan_time' not in st.session_state:
     st.session_state.last_scan_time = None
 if 'scan_results' not in st.session_state:
@@ -454,15 +456,24 @@ def run_all_scanners():
             st.session_state.last_scan_time = get_ist_time()
             
             # Send Telegram notification if enabled and there are results
-            if (st.session_state.notification_enabled and 
-                any(isinstance(df, pd.DataFrame) and not df.empty 
-                for df in scan_results.values())):
+            #if (st.session_state.notification_enabled and 
+                #any(isinstance(df, pd.DataFrame) and not df.empty 
+                #for df in scan_results.values())):
                 
+                #send_telegram_notification(scan_results)
+
+
+
+
+            if (st.session_state.notification_enabled and any(isinstance(df, pd.DataFrame) and not df.empty for df in scan_results.values())):
+                now = get_ist_time()
+                last_msg_time = st.session_state.last_telegram_time
+
+            if not last_msg_time or (now - last_msg_time >= timedelta(minutes=15)):
                 send_telegram_notification(scan_results)
-
-
-
-
+                st.session_state.last_telegram_time = now
+            else:
+                st.info("ℹ️ Telegram message skipped: minimum 15 minutes between messages.")
 
 
             
