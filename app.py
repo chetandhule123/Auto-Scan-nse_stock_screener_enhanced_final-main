@@ -469,6 +469,9 @@ def run_all_scanners():
                 now = get_ist_time()
                 last_scan_time = st.session_state.last_scan_time
 
+            if !(st.session_state.last_scan_time):
+                send_telegram_notification(scan_results)
+                
             # Send notification only if last scan time is at least 15 minutes ago
             if last_scan_time and (now - last_scan_time >= timedelta(minutes=15)):
                 send_telegram_notification(scan_results)
